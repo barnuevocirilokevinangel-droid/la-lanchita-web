@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /*
+   * Solo utilidades nativas de Tailwind en @apply.
+   * El color de marca (ivory #FDFBF7) se aplica con CSS plano para no
+   * depender de que tailwind.config.js se haya recargado en el dev server.
+   */
+  body {
+    background-color: #fdfbf7;
+    @apply font-sans text-slate-800 antialiased;
+  }
+}
