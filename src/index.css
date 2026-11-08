@@ -10,6 +10,102 @@
    */
   body {
     background-color: #fdfbf7;
-    @apply font-sans text-slate-800 antialiased;
+    @apply font-sans text-slate-800 antialiased selection:bg-orange-500 selection:text-white;
   }
+}
+
+/* Patrón de cuadrícula de bajo contraste para Hero cinemático */
+.bg-grid-pattern {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+}
+
+/* Animaciones de flotado continuo (Float Loop) para los platos interactivos */
+@keyframes float-1 {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(1.2deg);
+  }
+}
+
+@keyframes float-2 {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-18px) rotate(-1.5deg);
+  }
+}
+
+@keyframes float-3 {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(1deg);
+  }
+}
+
+@keyframes steam-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(0px) scale(0.85);
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-24px) scale(1.15);
+  }
+}
+
+@keyframes pulse-warm-glow {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-float-1 {
+  animation: float-1 5.5s ease-in-out infinite;
+}
+
+.animate-float-2 {
+  animation: float-2 6.5s ease-in-out infinite 0.8s;
+}
+
+.animate-float-3 {
+  animation: float-3 5.8s ease-in-out infinite 1.6s;
+}
+
+.animate-steam {
+  animation: steam-rise 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-glow-pulse {
+  animation: pulse-warm-glow 4s ease-in-out infinite;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.35s ease-out forwards;
 }

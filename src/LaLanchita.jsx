@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Fish,
   Anchor,
@@ -25,17 +25,24 @@ import {
   ChefHat,
   Lightbulb,
   Quote,
+  Play,
+  Sparkles,
+  Plus,
+  Minus,
+  ShoppingBag,
+  Trash2,
+  Check,
 } from 'lucide-react';
 import logoImg from './assets/logo-lanchita.png';
+import { subscribeHeroPrincipal } from './firebase.js';
 
 /* =========================================================================
-   CONFIGURACIÓN DEL NEGOCIO (edita estos datos con la información real)
+   CONFIGURACIÓN DEL NEGOCIO
    ========================================================================= */
 const CONFIG = {
   name: 'La Lanchita',
   fullName: 'Restaurant Cevichería La Lanchita',
   founder: 'Marco Antonio Pucutay Bermúdez',
-  // Formato internacional sin "+" ni espacios (Perú = 51)
   whatsapp: '51943000000',
   phoneDisplay: '+51 943 000 000',
   email: 'reservas@lalanchita.pe',
@@ -47,7 +54,7 @@ const CONFIG = {
   tiktok: 'https://tiktok.com/',
 };
 
-/* Fotos reales del local */
+/* Fotos del local */
 const IMAGES = {
   logo: '/logo-lanchita.png',
   salon: '/images/salon.jpg',
@@ -75,11 +82,53 @@ const NAV_LINKS = [
   { label: 'Ubicación', href: '#ubicacion' },
 ];
 
-/* Estilos de texto neón cálido (arbitrary properties de Tailwind v3.4) */
+/* Estilos de texto neón cálido */
 const NEON_TEXT =
   'text-amber-200 [text-shadow:0_0_6px_rgba(253,230,138,0.9),0_0_18px_rgba(245,158,11,0.8),0_0_42px_rgba(217,119,6,0.7)]';
 const NEON_SOFT =
   'text-amber-300 [text-shadow:0_0_10px_rgba(245,158,11,0.6),0_0_28px_rgba(217,119,6,0.45)]';
+
+/* =========================================================================
+   PLATOS ESTRELLA INTERACTIVOS DEL HERO
+   ========================================================================= */
+const HERO_STAR_DISHES = [
+  {
+    id: 'hero-ceviche-clasico',
+    name: 'Ceviche Clásico',
+    badge: 'Plato Bandera',
+    badgeColor: 'from-orange-500/20 to-amber-500/10 text-orange-400 border-orange-500/30',
+    desc: 'Cortes gruesos de pesca del día, leche de tigre al instante, camote glaseado y choclo tierno.',
+    price: 38,
+    priceDisplay: 'S/ 38.00',
+    image: '/images/platos/ceviche-clasico.jpg',
+    floatAnimation: 'animate-float-1',
+    offsetY: 'lg:-translate-y-4',
+  },
+  {
+    id: 'hero-chicharron-mixto',
+    name: 'Chicharrón Mixto',
+    badge: 'Más Crocante',
+    badgeColor: 'from-amber-500/20 to-orange-500/10 text-amber-300 border-amber-500/30',
+    desc: 'Pota, pescado fresco y langostinos crocantes con yucas doradas y salsa tártara de la casa.',
+    price: 42,
+    priceDisplay: 'S/ 42.00',
+    image: '/images/platos/chicharron-mixto.jpg',
+    floatAnimation: 'animate-float-2',
+    offsetY: 'lg:translate-y-6',
+  },
+  {
+    id: 'hero-arroz-mariscos',
+    name: 'Arroz con Mariscos',
+    badge: 'Fuego Vivo',
+    badgeColor: 'from-orange-600/20 to-amber-600/10 text-orange-400 border-orange-600/30',
+    desc: 'Salteado al wok con mixtura selecta, culantro de huerto, ají panca y lluvia de parmesano.',
+    price: 45,
+    priceDisplay: 'S/ 45.00',
+    image: '/images/platos/arroz-mariscos.jpg',
+    floatAnimation: 'animate-float-3',
+    offsetY: 'lg:-translate-y-2',
+  },
+];
 
 /* =========================================================================
    DATA: CARTA MARINA
@@ -90,24 +139,28 @@ const MENU = {
     icon: Fish,
     items: [
       {
+        id: 'ceviche-clasico-lanchita',
         name: 'Ceviche Clásico La Lanchita',
         desc: 'Pesca del día cortada al momento, limón recién exprimido, ají limo y cebolla morada crocante. Con camote glaseado y choclo serrano.',
         price: 38,
         chef: true,
       },
       {
+        id: 'ceviche-mixto-chimbotano',
         name: 'Ceviche Mixto Chimbotano',
         desc: 'Pescado, pulpo, langostinos y conchas en leche de tigre de la casa, con un toque de rocoto y cancha tostada.',
         price: 45,
         chef: false,
       },
       {
+        id: 'tiradito-aji-amarillo',
         name: 'Tiradito al Ají Amarillo',
         desc: 'Láminas finas de pescado bañadas en una crema sedosa de ají amarillo, culantro fresco y aceite de oliva.',
         price: 40,
         chef: true,
       },
       {
+        id: 'leche-tigre-levantamuertos',
         name: 'Leche de Tigre Levantamuertos',
         desc: 'El concentrado más potente del puerto: mariscos, chicharrón de pota y un golpe de rocoto. Ideal para recargar energías.',
         price: 25,
@@ -120,24 +173,28 @@ const MENU = {
     icon: Flame,
     items: [
       {
+        id: 'chicharron-pescado',
         name: 'Chicharrón de Pescado',
         desc: 'Trozos dorados y crujientes por fuera, jugosos por dentro. Con yuca frita, sarsa criolla y salsa tártara artesanal.',
         price: 36,
         chef: true,
       },
       {
+        id: 'chicharron-mixto-marino',
         name: 'Chicharrón Mixto Marino',
         desc: 'Pescado, pota, langostinos y calamar en fritura ligera, acompañados de yucas doradas y nuestra cremita de rocoto.',
         price: 42,
         chef: false,
       },
       {
+        id: 'pescado-a-lo-macho',
         name: 'Pescado a lo Macho',
         desc: 'Filete frito cubierto con una salsa cremosa de mariscos, ají panca y un toque de pisco. Servido con arroz blanco.',
         price: 48,
         chef: true,
       },
       {
+        id: 'sudado-pescado-norteno',
         name: 'Sudado de Pescado Norteño',
         desc: 'Pescado fresco cocido a fuego lento con tomate, cebolla, chicha de jora y ají amarillo. Reconfortante y lleno de sabor.',
         price: 40,
@@ -150,24 +207,28 @@ const MENU = {
     icon: Anchor,
     items: [
       {
+        id: 'ronda-marina-lanchita',
         name: 'Ronda Marina La Lanchita',
         desc: 'Para compartir: ceviche, chicharrón de pescado, arroz con mariscos y causa de langostinos. El festín familiar del puerto.',
         price: 95,
         chef: true,
       },
       {
+        id: 'duo-ceviche-chicharron',
         name: 'Dúo Ceviche + Chicharrón',
         desc: 'La pareja perfecta: ceviche clásico y chicharrón de pescado crocante en un solo plato generoso.',
         price: 46,
         chef: true,
       },
       {
+        id: 'trio-marino',
         name: 'Trío Marino',
         desc: 'Ceviche, arroz con mariscos y jalea mixta. Tres clásicos chimbotanos para quienes lo quieren todo.',
         price: 55,
         chef: false,
       },
       {
+        id: 'jalea-real-compartir',
         name: 'Jalea Real para Compartir',
         desc: 'Montaña de mariscos y pescado frito sobre yuca, coronada con sarsa criolla, limón y salsas de la casa.',
         price: 68,
@@ -178,7 +239,7 @@ const MENU = {
 };
 
 /* =========================================================================
-   ÍCONOS DE REDES (SVG inline para no depender de íconos de marca)
+   ÍCONOS DE REDES (SVG inline)
    ========================================================================= */
 const FacebookIcon = (props) => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
@@ -201,46 +262,6 @@ const TikTokIcon = (props) => (
 /* =========================================================================
    COMPONENTES REUTILIZABLES
    ========================================================================= */
-
-/**
- * Logo oficial. En fondos oscuros se monta sobre una "placa" marfil para
- * conservar la legibilidad del dibujo y del texto "Desde 1995".
- * Si la imagen no carga, muestra un respaldo con el ícono de barco.
- */
-/**
- * Logo oficial.
- * Renderizado limpio con fallback en caso de error.
- * En fondos oscuros (dark) incluye una base sutil para mantener el contraste y nitidez.
- */
-function Logo({ dark = false, className = '' }) {
-  const [failed, setFailed] = useState(false);
-
-  if (failed) {
-    return (
-      <span
-        className={`flex h-14 w-14 items-center justify-center rounded-full bg-night text-amber-400 ring-2 ring-wood/40 ${className}`}
-      >
-        <Ship className="h-7 w-7" />
-      </span>
-    );
-  }
-
-  return (
-    <span
-      className={`inline-flex shrink-0 items-center justify-center overflow-hidden transition-transform duration-300 ${
-        dark ? 'rounded-xl bg-ivory p-1.5 shadow-md ring-1 ring-wood-light/30' : ''
-      } ${className}`}
-    >
-      <img
-        src="/logo-lanchita.png"
-        alt="La Lanchita - Desde 1995"
-        className="h-14 w-auto object-contain transition-all duration-300"
-        onError={() => setFailed(true)}
-      />
-    </span>
-  );
-}
-
 function SectionTitle({ eyebrow, title, subtitle, dark = false, center = true }) {
   return (
     <div className={`mb-12 max-w-2xl ${center ? 'mx-auto text-center' : ''}`}>
@@ -292,7 +313,7 @@ function WhatsAppButton({ message, children, className = '', variant = 'primary'
 /* =========================================================================
    1. TOP BAR & NAVBAR
    ========================================================================= */
-function Header() {
+function Header({ cartCount, onOpenCart }) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -304,7 +325,7 @@ function Header() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-50">
+    <header className="sticky top-0 z-40">
       {/* Top bar */}
       <div className="bg-night px-4 py-2 text-center text-[11px] font-medium tracking-wide text-amber-200/90 sm:text-xs">
         <span className="inline-flex items-center gap-2">
@@ -348,19 +369,49 @@ function Header() {
             ))}
           </ul>
 
-          <div className="hidden lg:block">
+          <div className="hidden items-center gap-3 lg:flex">
+            {/* Botón Carrito en Navbar */}
+            <button
+              onClick={onOpenCart}
+              className="relative inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-50 px-4 py-2.5 text-xs font-bold text-orange-700 transition-all duration-300 hover:bg-orange-100 hover:scale-105 active:scale-95"
+              aria-label="Ver mi pedido"
+            >
+              <ShoppingBag className="h-4 w-4 text-orange-600" />
+              <span>Mi Pedido</span>
+              {cartCount > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-600 text-[11px] font-extrabold text-white animate-pulse">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
             <WhatsAppButton>Reservar Mesa / WhatsApp</WhatsAppButton>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="rounded-lg p-2 text-slate-800 transition hover:bg-wood/10 lg:hidden"
-            aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
-            aria-expanded={open}
-          >
-            {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+          <div className="flex items-center gap-2 lg:hidden">
+            <button
+              onClick={onOpenCart}
+              className="relative rounded-lg p-2 text-orange-700 hover:bg-orange-50"
+              aria-label="Ver carrito"
+            >
+              <ShoppingBag className="h-5 w-5" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-orange-600 text-[10px] font-bold text-white">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              className="rounded-lg p-2 text-slate-800 transition hover:bg-wood/10"
+              aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
+              aria-expanded={open}
+            >
+              {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile menu */}
@@ -393,84 +444,303 @@ function Header() {
 }
 
 /* =========================================================================
-   2. HERO (foto real del salón)
+   2. HERO CINEMÁTICO PREMIUM CON PLATOS FLOTANTES INTERACTIVOS (image_89.png)
    ========================================================================= */
-function Hero() {
+function Hero({ onAddToCart }) {
+  const [heroData, setHeroData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeDishId, setActiveDishId] = useState(null);
+
+  // Suscripción en tiempo real a Firebase Firestore + 500ms suave para evitar parpadeo
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 500);
+
+    const unsub = subscribeHeroPrincipal((data) => {
+      if (data) {
+        setHeroData(data);
+      }
+    });
+
+    return () => {
+      clearTimeout(timer);
+      unsub();
+    };
+  }, []);
+
+  const tituloOriginal = heroData?.titulo || 'SABOR QUE DESPIERTA EL MAR';
+  const subtitulo =
+    heroData?.subtitulo ||
+    'Pesca del día cortada al instante, limón sutil recién exprimido y el secreto de 30 años de tradición.';
+
+  // Función para destacar palabras clave en gradiente naranja encendido
+  const renderStyledTitle = (rawText) => {
+    const highlightPhrase = 'DESPIERTA EL MAR';
+    const upper = rawText.toUpperCase();
+
+    if (upper.includes(highlightPhrase)) {
+      const idx = upper.indexOf(highlightPhrase);
+      const before = rawText.substring(0, idx);
+      const phrase = rawText.substring(idx, idx + highlightPhrase.length);
+      const after = rawText.substring(idx + highlightPhrase.length);
+
+      return (
+        <>
+          {before}
+          <span className="bg-gradient-to-r from-orange-500 via-amber-400 to-amber-500 bg-clip-text text-transparent drop-shadow-[0_0_35px_rgba(249,115,22,0.45)]">
+            {phrase}
+          </span>
+          {after}
+        </>
+      );
+    }
+
+    // Si no contiene la frase exacta, destaca las últimas palabras
+    const words = rawText.split(' ');
+    if (words.length > 2) {
+      const first = words.slice(0, words.length - 3).join(' ');
+      const last = words.slice(words.length - 3).join(' ');
+      return (
+        <>
+          {first}{' '}
+          <span className="bg-gradient-to-r from-orange-500 via-amber-400 to-amber-500 bg-clip-text text-transparent drop-shadow-[0_0_35px_rgba(249,115,22,0.45)]">
+            {last}
+          </span>
+        </>
+      );
+    }
+
+    return rawText;
+  };
+
   return (
-    <section id="inicio" className="relative isolate flex min-h-[88vh] items-center overflow-hidden bg-night">
-      <img
-        src={IMAGES.salon}
-        alt="Salón comedor de La Lanchita con mesas de madera rústica y mural marino"
-        className="absolute inset-0 -z-20 h-full w-full object-cover object-[center_38%]"
-      />
-      {/* Overlay oscuro + degradado cálido madera para máxima legibilidad */}
-      <div className="absolute inset-0 -z-10 bg-gradient-to-r from-night/95 via-night/75 to-night/30" />
-      <div className="absolute inset-0 -z-10 bg-gradient-to-t from-wood-dark/60 via-transparent to-night/40" />
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_left,rgba(217,119,6,0.35),transparent_60%)]" />
+    <section
+      id="inicio"
+      className="relative isolate min-h-[92vh] flex items-center overflow-hidden bg-[#0f111a] py-16 lg:py-24"
+    >
+      {/* 1. Fondo con patrón de cuadrícula de bajo contraste */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-60 pointer-events-none" />
 
-      <div className="mx-auto w-full max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
-        <div className="max-w-3xl">
-          <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-wood-light/50 bg-wood-dark/30 px-4 py-2 text-xs font-medium text-amber-100 backdrop-blur sm:text-sm">
-            <Award className="h-4 w-4 text-amber-400" />
-            <span className="font-semibold">30 Años (1995 - Presente)</span>
-            <span className="hidden text-amber-400/60 sm:inline">•</span>
-            <span>Fundado por {CONFIG.founder}</span>
-          </div>
+      {/* 2. Resplandores ambientales cálidos-naranja de fondo */}
+      <div className="absolute -top-32 left-1/4 h-[550px] w-[550px] rounded-full bg-[radial-gradient(circle,rgba(249,115,22,0.18)_0%,transparent_70%)] blur-3xl pointer-events-none animate-glow-pulse" />
+      <div className="absolute top-1/3 right-0 h-[650px] w-[650px] rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.14)_0%,transparent_65%)] blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-20 left-10 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(249,115,22,0.1)_0%,transparent_70%)] blur-2xl pointer-events-none" />
 
-          <h1 className="mt-6 font-display text-4xl font-extrabold leading-[1.1] text-white drop-shadow-lg sm:text-5xl lg:text-7xl">
-            30 Años de{' '}
-            <span className="bg-gradient-to-r from-amber-300 via-wood-light to-amber-500 bg-clip-text text-transparent">
-              Sabor, Corazón
-            </span>{' '}
-            y Tradición Marina
-          </h1>
+      {/* Contenedor Principal */}
+      <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-8">
+          
+          {/* ========================================================
+              COLUMNA IZQUIERDA: TEXTO, CTA Y BADGES
+             ======================================================== */}
+          <div className="lg:col-span-6 xl:col-span-6 z-10 text-center lg:text-left">
+            {/* Tag superior en vivo */}
+            <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-orange-400 backdrop-blur-md mb-6">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-orange-500" />
+              </span>
+              <span>30 Años de Tradición · Nuevo Chimbote</span>
+            </div>
 
-          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-slate-200 sm:text-xl">
-            Pioneros del ceviche en Nuevo Chimbote, con el auténtico pescado fresco de nuestra costa, mesas de madera
-            que guardan historias y la calidez familiar de siempre.
-          </p>
-
-          <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-            <a
-              href="#carta"
-              className="group inline-flex items-center justify-center gap-2 rounded-full bg-ivory px-7 py-3.5 text-sm font-semibold text-slate-900 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-white hover:shadow-xl"
+            {/* Título gigante con gran peso visual */}
+            <h1
+              className={`font-black text-4xl sm:text-6xl lg:text-6xl xl:text-7xl tracking-tight leading-[1.05] text-white transition-opacity duration-500 ${
+                loading ? 'opacity-30' : 'opacity-100'
+              }`}
             >
-              <Fish className="h-4 w-4 text-wood" />
-              Ver Especialidades
-              <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </a>
-            <WhatsAppButton className="px-7 py-3.5">Reservar por WhatsApp</WhatsAppButton>
+              {renderStyledTitle(tituloOriginal)}
+            </h1>
+
+            {/* Subtítulo en tono gris/blanco roto suave */}
+            <p
+              className={`mt-6 text-base sm:text-lg lg:text-xl font-normal leading-relaxed text-slate-300 max-w-xl mx-auto lg:mx-0 transition-opacity duration-500 ${
+                loading ? 'opacity-30' : 'opacity-100'
+              }`}
+            >
+              {subtitulo}
+            </p>
+
+            {/* Botón principal "VER CARTA DIGITAL" y acción secundaria */}
+            <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
+              <a
+                href="#carta"
+                className="group relative inline-flex w-full sm:w-auto items-center justify-center gap-3 rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 px-8 py-4 text-base font-extrabold text-white shadow-[0_0_22px_rgba(249,115,22,0.45)] transition-all duration-300 hover:scale-105 hover:shadow-[0_0_32px_rgba(249,115,22,0.65)] active:scale-95"
+              >
+                <span>VER CARTA DIGITAL</span>
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 transition-transform duration-300 group-hover:translate-x-1">
+                  <Play className="h-3.5 w-3.5 fill-white text-white ml-0.5" />
+                </span>
+              </a>
+
+              <a
+                href={waLink('Hola La Lanchita, quiero hacer una consulta o pedido')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-4 text-sm font-semibold text-slate-200 backdrop-blur-md transition-all duration-300 hover:border-orange-500/50 hover:bg-white/10 hover:text-white"
+              >
+                <MessageCircle className="h-4 w-4 text-orange-400" />
+                <span>Reservas / Pedidos</span>
+              </a>
+            </div>
+
+            {/* Tres badges inferiores discretos con íconos de Lucide */}
+            <div className="mt-12 pt-8 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
+              <div className="flex items-center gap-3 rounded-xl bg-white/[0.02] border border-white/5 p-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/15 text-orange-400">
+                  <Sparkles className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-white">100% Pesca Fresca</p>
+                  <p className="text-[11px] text-slate-400">Del mar a tu plato</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-xl bg-white/[0.02] border border-white/5 p-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400">
+                  <Flame className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-white">Preparado al Instante</p>
+                  <p className="text-[11px] text-slate-400">Fuego y limón vivo</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 rounded-xl bg-white/[0.02] border border-white/5 p-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+                  <MessageCircle className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-white">Pedido directo</p>
+                  <p className="text-[11px] text-slate-400">Por WhatsApp fácil</p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-12 flex flex-wrap items-center gap-6 text-sm text-slate-200">
-            <span className="inline-flex items-center gap-2">
-              <Star className="h-4 w-4 fill-amber-400 text-amber-400" /> Pesca fresca del día
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <Users className="h-4 w-4 text-amber-400" /> Ambiente familiar
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <Mic className="h-4 w-4 text-amber-400" /> Terraza Karaoke 3er piso
-            </span>
+          {/* ========================================================
+              COLUMNA DERECHA: FILA DE PLATOS INTERACTIVOS (3D & GLOW)
+             ======================================================== */}
+          <div className="lg:col-span-6 xl:col-span-6 relative mt-6 lg:mt-0">
+            {/* Halo ambiental centrado en la fila de platos */}
+            <div className="absolute inset-0 -z-10 rounded-full bg-gradient-to-r from-orange-500/10 via-amber-500/15 to-orange-600/10 blur-3xl pointer-events-none" />
+
+            {/* Título de sección interactiva en móvil */}
+            <div className="text-center mb-4 lg:hidden">
+              <span className="text-xs font-semibold uppercase tracking-wider text-orange-400">
+                ✦ Especialidades del Capitán · Toca un plato
+              </span>
+            </div>
+
+            {/* Contenedor de los 3 platos estrella en cascada/fila */}
+            <div className="flex flex-row items-center justify-center gap-4 sm:gap-6 lg:gap-5 overflow-x-auto pb-4 pt-2 lg:overflow-visible no-scrollbar">
+              {HERO_STAR_DISHES.map((dish) => {
+                const isHovered = activeDishId === dish.id;
+
+                return (
+                  <div
+                    key={dish.id}
+                    onMouseEnter={() => setActiveDishId(dish.id)}
+                    onMouseLeave={() => setActiveDishId(null)}
+                    className={`group relative flex flex-col items-center shrink-0 cursor-pointer transition-all duration-500 ${dish.floatAnimation} ${dish.offsetY}`}
+                    style={{ width: 'clamp(140px, 28vw, 190px)' }}
+                  >
+                    {/* Partículas de vapor ascendentes en hover */}
+                    <div className="pointer-events-none absolute -top-5 left-1/2 -translate-x-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                      <span className="h-3 w-1 rounded-full bg-orange-400/70 blur-[1px] animate-steam" />
+                      <span className="h-4 w-1 rounded-full bg-amber-300/80 blur-[1px] animate-steam [animation-delay:0.3s]" />
+                      <span className="h-3.5 w-1 rounded-full bg-white/70 blur-[1px] animate-steam [animation-delay:0.6s]" />
+                    </div>
+
+                    {/* Estructura del plato sobre base de piedra oscura */}
+                    <div className="relative rounded-full p-2 sm:p-2.5 bg-gradient-to-b from-stone-800 via-stone-900 to-black ring-1 ring-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.85)] transition-all duration-500 group-hover:-translate-y-4 group-hover:scale-110 group-hover:ring-orange-500/60 group-hover:shadow-[0_0_35px_rgba(249,115,22,0.45)]">
+                      {/* Resplandor naranja de fondo en el plato */}
+                      <div className="absolute inset-0 -z-10 rounded-full bg-gradient-to-tr from-orange-600/30 to-amber-500/30 blur-xl opacity-30 transition-all duration-500 group-hover:opacity-100 group-hover:scale-125" />
+
+                      {/* Imagen circular de alta calidad */}
+                      <div className="relative h-28 w-28 sm:h-36 sm:w-36 lg:h-40 lg:w-40 xl:h-44 xl:w-44 overflow-hidden rounded-full aspect-square border border-white/15">
+                        <img
+                          src={dish.image}
+                          alt={dish.name}
+                          className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-115 group-hover:rotate-3"
+                          loading="eager"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-50 group-hover:opacity-20 transition-opacity" />
+                      </div>
+
+                      {/* Badge flotante en el borde del plato */}
+                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-md">
+                          {dish.badge}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Minicard descriptiva y precio emergente */}
+                    <div className="mt-4 flex flex-col items-center text-center transition-all duration-300">
+                      <h3 className="font-display text-sm sm:text-base font-bold text-white transition-colors group-hover:text-orange-400">
+                        {dish.name}
+                      </h3>
+
+                      <p className="mt-0.5 line-clamp-1 text-[11px] text-slate-400 max-w-[170px] hidden sm:block">
+                        {dish.desc}
+                      </p>
+
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="font-display font-extrabold text-sm sm:text-base text-amber-400 drop-shadow">
+                          {dish.priceDisplay}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAddToCart({
+                              id: dish.id,
+                              name: dish.name,
+                              price: dish.price,
+                            });
+                          }}
+                          className="inline-flex items-center justify-center gap-1 rounded-full bg-orange-500 px-2.5 py-1 text-[11px] font-bold text-white shadow-md transition-all duration-200 hover:bg-orange-600 hover:scale-105 active:scale-95"
+                          title={`Agregar ${dish.name} al pedido`}
+                        >
+                          <Plus className="h-3 w-3" />
+                          <span>Pedir</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Mensaje de interacción inferior */}
+            <p className="mt-6 text-center text-xs text-slate-400/80">
+              ✦ Haz clic en <span className="text-orange-400 font-semibold">+ Pedir</span> para agregar directamente a tu pedido
+            </p>
           </div>
+
         </div>
       </div>
 
-      {/* Ola decorativa */}
-      <svg
-        className="absolute bottom-0 left-0 w-full text-ivory"
-        viewBox="0 0 1440 80"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        <path fill="currentColor" d="M0,48 C240,96 480,0 720,32 C960,64 1200,16 1440,48 L1440,80 L0,80 Z" />
-      </svg>
+      {/* Ola marina decorativa de transición a la sección blanca inferior */}
+      <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
+        <svg
+          className="w-full h-8 sm:h-12 text-ivory fill-current"
+          viewBox="0 0 1440 60"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <path d="M0,32 C320,64 720,0 1080,36 C1260,54 1380,24 1440,32 L1440,60 L0,60 Z" />
+        </svg>
+      </div>
     </section>
   );
 }
 
 /* =========================================================================
-   3. HISTORIA & TRAYECTORIA (foto de la carta / reseña)
+   3. HISTORIA & TRAYECTORIA
    ========================================================================= */
 function History() {
   const stats = [
@@ -485,7 +755,6 @@ function History() {
         <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-20">
           {/* Marco rústico con la reseña real */}
           <figure className="group relative mx-auto w-full max-w-md">
-            {/* Tablón de madera detrás */}
             <div className="absolute -inset-3 rotate-[-2deg] rounded-2xl bg-gradient-to-br from-wood-light via-wood to-wood-dark opacity-90 shadow-xl transition-transform duration-500 group-hover:rotate-0" />
             <div className="relative rounded-xl bg-gradient-to-br from-wood to-wood-dark p-2.5 shadow-2xl shadow-wood-dark/30">
               <div className="overflow-hidden rounded-lg border-2 border-amber-200/40 bg-ivory">
@@ -560,9 +829,9 @@ function History() {
 }
 
 /* =========================================================================
-   4. CARTA MARINA
+   4. CARTA MARINA CON AGREGADO DIRECTO AL CARRITO
    ========================================================================= */
-function DishCard({ dish }) {
+function DishCard({ dish, onAddToCart, inCartCount }) {
   return (
     <article className="group relative flex flex-col rounded-2xl border border-wood/15 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-wood/40 hover:shadow-2xl hover:shadow-wood-dark/10">
       <div className="flex items-start justify-between gap-4">
@@ -583,20 +852,34 @@ function DishCard({ dish }) {
 
       <p className="mt-4 flex-1 text-sm leading-relaxed text-slate-600">{dish.desc}</p>
 
-      <div className="mt-6 border-t border-dashed border-wood/20 pt-5">
+      {/* Acciones de Pedido */}
+      <div className="mt-6 border-t border-dashed border-wood/20 pt-4 space-y-2">
+        <button
+          type="button"
+          onClick={() => onAddToCart(dish)}
+          className={`w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-4 text-xs font-bold transition-all duration-300 ${
+            inCartCount > 0
+              ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30'
+              : 'bg-orange-500/10 text-orange-700 hover:bg-orange-500 hover:text-white'
+          }`}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          <span>{inCartCount > 0 ? `En Pedido (${inCartCount}) · Agregar otro` : 'Agregar al Pedido'}</span>
+        </button>
+
         <WhatsAppButton
           variant="outline"
-          className="w-full"
+          className="w-full text-xs py-2"
           message={`Hola La Lanchita, quiero pedir: ${dish.name} (S/. ${dish.price})`}
         >
-          Pedir por WhatsApp
+          Pedir por WhatsApp directo
         </WhatsAppButton>
       </div>
     </article>
   );
 }
 
-function MenuSection() {
+function MenuSection({ onAddToCart, cart }) {
   const [active, setActive] = useState('ceviches');
   const current = MENU[active];
 
@@ -640,7 +923,12 @@ function MenuSection() {
 
         <div key={active} role="tabpanel" className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {current.items.map((dish) => (
-            <DishCard key={dish.name} dish={dish} />
+            <DishCard
+              key={dish.id || dish.name}
+              dish={dish}
+              onAddToCart={onAddToCart}
+              inCartCount={cart[dish.id || dish.name]?.count || 0}
+            />
           ))}
         </div>
 
@@ -653,7 +941,7 @@ function MenuSection() {
 }
 
 /* =========================================================================
-   5. TERRAZA & KARAOKE – 3ER PISO (modo noche con neón cálido)
+   5. TERRAZA & KARAOKE – 3ER PISO
    ========================================================================= */
 function Terrace() {
   const features = [
@@ -665,7 +953,6 @@ function Terrace() {
 
   return (
     <section id="terraza" className="relative isolate scroll-mt-28 overflow-hidden bg-night py-20 text-ivory sm:py-28">
-      {/* Fondo ambiental con la foto real, muy difuminada */}
       <img
         src={IMAGES.terraza}
         alt=""
@@ -681,7 +968,6 @@ function Terrace() {
       <div className="pointer-events-none absolute left-1/2 top-0 h-px w-2/3 -translate-x-1/2 bg-gradient-to-r from-transparent via-amber-500/60 to-transparent" />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Encabezado neón */}
         <div className="mx-auto mb-14 max-w-3xl text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-amber-300">
             <Moon className="h-3.5 w-3.5" /> 3er Piso · Noches La Lanchita
@@ -697,7 +983,6 @@ function Terrace() {
         </div>
 
         <div className="grid items-center gap-12 lg:grid-cols-5">
-          {/* Tarjeta principal con la foto real */}
           <div className="group relative lg:col-span-3">
             <div className="absolute -inset-1 rounded-[1.75rem] bg-gradient-to-br from-amber-400/60 via-wood-light/40 to-transparent opacity-70 blur-lg transition-opacity duration-500 group-hover:opacity-100" />
             <div className="relative overflow-hidden rounded-3xl ring-1 ring-amber-400/30">
@@ -720,7 +1005,6 @@ function Terrace() {
             </div>
           </div>
 
-          {/* Atributos */}
           <div className="lg:col-span-2">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
               {features.map(({ icon: Icon, title, desc }) => (
@@ -782,7 +1066,6 @@ function Location() {
         />
 
         <div className="grid gap-8 lg:grid-cols-5">
-          {/* Info */}
           <div className="space-y-5 lg:col-span-2">
             <div className={cardCls}>
               <div className="flex items-start gap-4">
@@ -842,7 +1125,6 @@ function Location() {
             </div>
           </div>
 
-          {/* Mapa */}
           <div className="relative min-h-[360px] overflow-hidden rounded-3xl border-4 border-white shadow-lg ring-1 ring-wood/20 lg:col-span-3">
             <iframe
               title="Mapa de La Lanchita en Nuevo Chimbote"
@@ -962,25 +1244,216 @@ function Footer() {
 }
 
 /* =========================================================================
-   BOTÓN FLOTANTE DE WHATSAPP
+   SISTEMA DE CARRITO DE PEDIDOS ('TU PEDIDO' S/ 0.00 Y WHATSAPP ESTRUCTURADO)
    ========================================================================= */
-function FloatingWhatsApp() {
+function CartDrawer({ isOpen, onClose, cart, onUpdateQuantity, onRemoveItem, onClearCart }) {
+  const items = Object.values(cart);
+  const total = items.reduce((acc, curr) => acc + curr.item.price * curr.count, 0);
+
+  // Mensaje estructurado de WhatsApp limpio y amigable
+  const handleCheckoutWhatsApp = () => {
+    if (items.length === 0) return;
+
+    let text = `🌊 *PEDIDO LA LANCHITA - WEB OFICIAL*\n`;
+    text += `¡Hola! Deseo realizar el siguiente pedido marino:\n\n`;
+
+    items.forEach((entry, idx) => {
+      const sub = (entry.item.price * entry.count).toFixed(2);
+      text += `${idx + 1}. *${entry.count}x* ${entry.item.name} — S/ ${sub}\n`;
+    });
+
+    text += `\n💰 *TOTAL A PAGAR: S/ ${total.toFixed(2)}*\n\n`;
+    text += `📍 *Dirección o Mesa:* (Completar)\n`;
+    text += `🛵 *Tipo:* Delivery / Recojo en Local\n`;
+    text += `¡Muchas gracias!`;
+
+    const url = `https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  if (!isOpen) return null;
+
   return (
-    <a
-      href={waLink(DEFAULT_MESSAGE)}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="Reservar por WhatsApp"
-      className="group fixed bottom-5 right-5 z-50 flex items-center gap-3 sm:bottom-8 sm:right-8"
-    >
-      <span className="pointer-events-none hidden translate-x-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-800 opacity-0 shadow-lg transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100 sm:block">
-        ¡Reserva tu mesa!
-      </span>
-      <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl shadow-green-900/30 transition-transform duration-300 group-hover:scale-110">
-        <span className="absolute inset-0 animate-ping rounded-full bg-[#25D366] opacity-30" />
-        <MessageCircle className="relative h-7 w-7" />
-      </span>
-    </a>
+    <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-sm transition-opacity">
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+        <div className="w-screen max-w-md bg-stone-900 border-l border-white/10 text-white flex flex-col shadow-2xl">
+          {/* Header del Carrito */}
+          <div className="p-6 border-b border-white/10 flex items-center justify-between bg-stone-950">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20 text-orange-400">
+                <ShoppingBag className="h-5 w-5" />
+              </span>
+              <div>
+                <h3 className="font-display text-lg font-bold">Tu Pedido Marino</h3>
+                <p className="text-xs text-slate-400">
+                  {items.length} {items.length === 1 ? 'producto' : 'productos'} seleccionados
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="rounded-lg p-2 text-slate-400 hover:text-white hover:bg-white/10 transition"
+              aria-label="Cerrar pedido"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Lista de Items */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {items.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 mb-4">
+                  <ShoppingBag className="h-8 w-8 text-slate-500" />
+                </div>
+                <p className="font-bold text-white text-base">Tu pedido está vacío</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-xs">
+                  Explora la carta y agrega tus ceviches o chicharrones favoritos haciendo clic en "Pedir".
+                </p>
+                <a
+                  href="#carta"
+                  onClick={onClose}
+                  className="mt-6 inline-flex items-center gap-2 rounded-full bg-orange-500 px-6 py-2.5 text-xs font-bold text-white shadow-lg transition hover:bg-orange-600"
+                >
+                  Ver Carta Marina
+                </a>
+              </div>
+            ) : (
+              items.map(({ item, count }) => (
+                <div
+                  key={item.id || item.name}
+                  className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.03] border border-white/5"
+                >
+                  <div className="flex-1 pr-3">
+                    <p className="text-sm font-bold text-white">{item.name}</p>
+                    <p className="text-xs text-amber-400 font-semibold mt-0.5">
+                      S/ {item.price.toFixed(2)} c/u
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {/* Controles de cantidad */}
+                    <div className="flex items-center rounded-lg bg-white/10 p-1">
+                      <button
+                        onClick={() => onUpdateQuantity(item.id || item.name, count - 1)}
+                        className="h-6 w-6 rounded flex items-center justify-center text-slate-300 hover:bg-white/20 transition"
+                        aria-label="Disminuir"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="w-8 text-center text-xs font-bold text-white">{count}</span>
+                      <button
+                        onClick={() => onUpdateQuantity(item.id || item.name, count + 1)}
+                        className="h-6 w-6 rounded flex items-center justify-center text-slate-300 hover:bg-white/20 transition"
+                        aria-label="Aumentar"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => onRemoveItem(item.id || item.name)}
+                      className="p-1.5 text-slate-400 hover:text-rose-400 transition"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Footer del Carrito con Checkout */}
+          {items.length > 0 && (
+            <div className="p-6 border-t border-white/10 bg-stone-950 space-y-4">
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>Subtotal</span>
+                  <span>S/ {total.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-base font-extrabold text-white">
+                  <span>Total estimado</span>
+                  <span className="text-xl text-amber-400 font-display">S/ {total.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <button
+                onClick={handleCheckoutWhatsApp}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#25D366] to-emerald-600 px-6 py-3.5 text-sm font-extrabold text-white shadow-[0_0_25px_rgba(37,211,102,0.4)] transition-all hover:scale-102 hover:shadow-[0_0_35px_rgba(37,211,102,0.6)] active:scale-98"
+              >
+                <MessageCircle className="h-5 w-5 fill-white text-emerald-800" />
+                <span>Confirmar Pedido por WhatsApp</span>
+              </button>
+
+              <button
+                onClick={onClearCart}
+                className="w-full text-center text-xs text-slate-500 hover:text-slate-400 transition"
+              >
+                Vaciar pedido
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+   WIDGET FLOTANTE INFERIOR DERECHO ('TU PEDIDO' S/ 0.00 Y WHATSAPP)
+   ========================================================================= */
+function FloatingOrderWidget({ cart, onOpenCart }) {
+  const items = Object.values(cart);
+  const totalCount = items.reduce((acc, curr) => acc + curr.count, 0);
+  const totalPrice = items.reduce((acc, curr) => acc + curr.item.price * curr.count, 0);
+
+  return (
+    <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3 sm:bottom-8 sm:right-8">
+      {/* Botón interactivo de "TU PEDIDO" sincronizado en tiempo real */}
+      <button
+        type="button"
+        onClick={onOpenCart}
+        className="group relative flex items-center gap-3 rounded-full bg-gradient-to-r from-stone-900 via-stone-950 to-black p-2 pr-4 border border-orange-500/40 text-white shadow-2xl shadow-orange-950/50 backdrop-blur-md transition-all duration-300 hover:scale-105 hover:border-orange-500 hover:shadow-[0_0_25px_rgba(249,115,22,0.4)] active:scale-95"
+      >
+        <span className="relative flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md">
+          <ShoppingBag className="h-5 w-5" />
+          {totalCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-black text-orange-600 shadow animate-bounce">
+              {totalCount}
+            </span>
+          )}
+        </span>
+
+        <div className="text-left">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-orange-400">
+            {totalCount > 0 ? `${totalCount} ${totalCount === 1 ? 'plato' : 'platos'}` : 'Tu Pedido'}
+          </p>
+          <p className="font-display text-sm sm:text-base font-extrabold text-white leading-none">
+            S/ {totalPrice.toFixed(2)}
+          </p>
+        </div>
+
+        <ChevronRight className="h-4 w-4 text-slate-400 transition-transform duration-300 group-hover:translate-x-0.5" />
+      </button>
+
+      {/* Botón flotante clásico de WhatsApp para reservas */}
+      <a
+        href={waLink(DEFAULT_MESSAGE)}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Reservar por WhatsApp"
+        className="group flex items-center gap-2"
+      >
+        <span className="pointer-events-none hidden translate-x-2 rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-800 opacity-0 shadow-lg transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100 sm:block">
+          ¡Reserva tu mesa!
+        </span>
+        <span className="relative flex h-12 w-12 sm:h-13 sm:w-13 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl shadow-green-900/30 transition-transform duration-300 hover:scale-110 active:scale-95">
+          <span className="absolute inset-0 animate-ping rounded-full bg-[#25D366] opacity-25" />
+          <MessageCircle className="relative h-6 w-6" />
+        </span>
+      </a>
+    </div>
   );
 }
 
@@ -988,18 +1461,87 @@ function FloatingWhatsApp() {
    PÁGINA PRINCIPAL
    ========================================================================= */
 export default function LaLanchita() {
+  const [cart, setCart] = useState({});
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
+  // Funciones de Carrito
+  const handleAddToCart = (item) => {
+    const id = item.id || item.name;
+    setCart((prev) => {
+      const existing = prev[id];
+      if (existing) {
+        return {
+          ...prev,
+          [id]: { ...existing, count: existing.count + 1 },
+        };
+      }
+      return {
+        ...prev,
+        [id]: { item, count: 1 },
+      };
+    });
+  };
+
+  const handleUpdateQuantity = (id, newCount) => {
+    if (newCount <= 0) {
+      handleRemoveItem(id);
+      return;
+    }
+    setCart((prev) => {
+      if (!prev[id]) return prev;
+      return {
+        ...prev,
+        [id]: { ...prev[id], count: newCount },
+      };
+    });
+  };
+
+  const handleRemoveItem = (id) => {
+    setCart((prev) => {
+      const copy = { ...prev };
+      delete copy[id];
+      return copy;
+    });
+  };
+
+  const handleClearCart = () => {
+    setCart({});
+  };
+
+  const totalCartCount = useMemo(() => {
+    return Object.values(cart).reduce((acc, curr) => acc + curr.count, 0);
+  }, [cart]);
+
   return (
     <div className="min-h-screen bg-ivory">
-      <Header />
+      <Header
+        cartCount={totalCartCount}
+        onOpenCart={() => setIsCartOpen(true)}
+      />
       <main>
-        <Hero />
+        <Hero onAddToCart={handleAddToCart} />
         <History />
-        <MenuSection />
+        <MenuSection onAddToCart={handleAddToCart} cart={cart} />
         <Terrace />
         <Location />
       </main>
       <Footer />
-      <FloatingWhatsApp />
+
+      {/* Widget flotante de pedido y WhatsApp */}
+      <FloatingOrderWidget
+        cart={cart}
+        onOpenCart={() => setIsCartOpen(true)}
+      />
+
+      {/* Drawer modal de Tu Pedido */}
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        cart={cart}
+        onUpdateQuantity={handleUpdateQuantity}
+        onRemoveItem={handleRemoveItem}
+        onClearCart={handleClearCart}
+      />
     </div>
   );
 }
